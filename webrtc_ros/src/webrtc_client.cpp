@@ -281,25 +281,16 @@ void WebrtcClient::handle_message(MessageHandler::Type type, const std::string& 
 
             if(action.type == ConfigureAction::kAddStreamActionName) {
               FIND_PROPERTY_OR_CONTINUE("id", stream_id);
-
-                    rtc::scoped_refptr<webrtc::MediaStreamInterface> stream = peer_connection_factory_->CreateLocalMediaStream(stream_id);
-
-                    if (!peer_connection_->AddStream(stream.get()))
-                    {
-                      RCLCPP_WARN(nh_->get_logger(), "Adding stream to PeerConnection failed");
-                continue;
-                    }
+              // With Unified Plan, we just track stream IDs locally
+              // Tracks will be added directly to the peer connection with stream labels
+              local_stream_ids_.insert(stream_id);
+              RCLCPP_DEBUG_STREAM(nh_->get_logger(), "Registered stream id: " << stream_id);
             }
             else if(action.type == ConfigureAction::kRemoveStreamActionName) {
               FIND_PROPERTY_OR_CONTINUE("id", stream_id);
-
-                    rtc::scoped_refptr<webrtc::MediaStreamInterface> stream = peer_connection_factory_->CreateLocalMediaStream(stream_id);
-
-              if(!stream) {
-                RCLCPP_WARN_STREAM(nh_->get_logger(), "Stream not found with id: " << stream_id);
-                continue;
-              }
-                    peer_connection_->RemoveStream(stream.get());
+              // With Unified Plan, just remove from local tracking
+              local_stream_ids_.erase(stream_id);
+              RCLCPP_DEBUG_STREAM(nh_->get_logger(), "Unregistered stream id: " << stream_id);
             }
             else if(action.type == ConfigureAction::kAddVideoTrackActionName) {
               FIND_PROPERTY_OR_CONTINUE("stream_id", stream_id);
@@ -313,8 +304,8 @@ void WebrtcClient::handle_message(MessageHandler::Type type, const std::string& 
                 continue;
               }
 
-                    webrtc::MediaStreamInterface* stream = peer_connection_->local_streams()->find(stream_id);
-              if(!stream) {
+              // With Unified Plan, check if stream_id is registered locally
+              if(local_stream_ids_.find(stream_id) == local_stream_ids_.end()) {
                 RCLCPP_WARN_STREAM(nh_->get_logger(), "Stream not found with id: " << stream_id);
                 continue;
               }
@@ -326,7 +317,12 @@ void WebrtcClient::handle_message(MessageHandler::Type type, const std::string& 
                         peer_connection_factory_->CreateVideoTrack(
                           track_id,
                           capturer.get()));
-                      stream->AddTrack(video_track);
+                      // Use AddTrack with stream_id as label (Unified Plan compatible)
+                      auto result = peer_connection_->AddTrack(video_track, {stream_id});
+                      if (!result.ok()) {
+                        RCLCPP_WARN_STREAM(nh_->get_logger(), "Failed to add video track: " << result.error().message());
+                        continue;
+                      }
                       capturer->Start();
               }
               else {
@@ -346,8 +342,8 @@ void WebrtcClient::handle_message(MessageHandler::Type type, const std::string& 
                 continue;
               }
 
-                    webrtc::MediaStreamInterface* stream = peer_connection_->local_streams()->find(stream_id);
-              if(!stream) {
+              // With Unified Plan, check if stream_id is registered locally
+              if(local_stream_ids_.find(stream_id) == local_stream_ids_.end()) {
                 RCLCPP_WARN_STREAM(nh_->get_logger(), "Stream not found with id: " << stream_id);
                 continue;
               }
@@ -358,10 +354,15 @@ void WebrtcClient::handle_message(MessageHandler::Type type, const std::string& 
                   peer_connection_factory_->CreateAudioTrack(
                     track_id,
                       peer_connection_factory_->CreateAudioSource(options).get()));
-                      stream->AddTrack(audio_track);
+                      // Use AddTrack with stream_id as label (Unified Plan compatible)
+                      auto result = peer_connection_->AddTrack(audio_track, {stream_id});
+                      if (!result.ok()) {
+                        RCLCPP_WARN_STREAM(nh_->get_logger(), "Failed to add audio track: " << result.error().message());
+                        continue;
+                      }
               }
               else {
-                RCLCPP_WARN_STREAM(nh_->get_logger(), "Unknown video source type: " << audio_type);
+                RCLCPP_WARN_STREAM(nh_->get_logger(), "Unknown audio source type: " << audio_type);
               }
 
             }

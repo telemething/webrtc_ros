@@ -44,7 +44,8 @@ endif()
 message(STATUS "Configuring WebRTC build system")
 message(${CMAKE_CURRENT_SOURCE_DIR})
 execute_process(
-    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/build/webrtc/src/build/util/lastchange.py" "LASTCHANGE"
+    COMMAND env "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/build/depot_tools"
+        "${CMAKE_CURRENT_SOURCE_DIR}/build/webrtc/src/build/util/lastchange.py" "LASTCHANGE"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/webrtc/src/build/util/"
 )
 execute_process(
@@ -89,4 +90,3 @@ install(
     FILES_MATCHING PATTERN "*.h"
 )
 install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/output/make_install.cmake")
-

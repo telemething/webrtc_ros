@@ -1,6 +1,7 @@
 #ifndef WEBRTC_ROS_WEBRTC_CLIENT_H_
 #define WEBRTC_ROS_WEBRTC_CLIENT_H_
 
+#include <set>
 #include <rclcpp/rclcpp.hpp>
 #include <image_transport/image_transport.hpp>
 
@@ -99,6 +100,7 @@ private:
   rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;
 
   std::map<std::string, std::map<std::string, std::string>> expected_streams_;
+  std::set<std::string> local_stream_ids_;  // Track stream IDs for Unified Plan
 
   rclcpp::TimerBase::SharedPtr ping_timer_;
 
